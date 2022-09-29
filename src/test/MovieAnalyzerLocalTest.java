@@ -1,3 +1,5 @@
+package test;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -137,6 +139,7 @@ public class MovieAnalyzerLocalTest {
             Method method = movieAnalyzerClass.getMethod("getMovieCountByYear");
             Object res = method.invoke(imdbTop);
             assertTrue(res instanceof Map<?, ?>);
+            System.out.println(res);
             String expected = Files.readString(Paths.get("resources", "answers_local", "Q1.txt"),
                             StandardCharsets.UTF_8)
                     .replace("\r", "").strip();
