@@ -58,15 +58,16 @@ public class MovieAnalyzer {
         bean.runtime = Integer.parseInt(temp[4].split(" ")[0]);
         bean.genre = temp[5];
         bean.rateInIMDB = Double.parseDouble(temp[6]);
-        bean.overview = temp[6];
-        bean.metaScore = Integer.parseInt(temp[7]);
-        bean.director = temp[8];
-        bean.stars[0] = temp[9];
-        bean.stars[1] = temp[10];
-        bean.stars[2] = temp[11];
-        bean.stars[3] = temp[12];
-        bean.noOfVotes = Long.parseLong(temp[13]);
-        bean.gross = Long.parseLong(temp[14].replace("\"", ""));
+        bean.overview = temp[7];
+        bean.metaScore = Integer.parseInt(temp[8]);
+        bean.director = temp[9];
+        bean.stars = new String[4];
+        bean.stars[0] = temp[10];
+        bean.stars[1] = temp[11];
+        bean.stars[2] = temp[12];
+        bean.stars[3] = temp[13];
+        bean.noOfVotes = Long.parseLong(temp[14]);
+        bean.gross = Long.parseLong(temp[15].replace("\"", "").replace(",", ""));
     }
 
     public MovieAnalyzer(String datasetPath) {
@@ -83,14 +84,10 @@ public class MovieAnalyzer {
             inLine = reader.readLine();
             while((inLine = reader.readLine()) != null){
                 String[] temp = inLine.split(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
-                if (temp.length < 13) continue;
-                try {
-                    MovieBean bean = movieBeanSupplier.get();
-                    buildMovieBean(temp, bean);
-                    System.out.println(bean);
-                } catch (Exception ignored) {
-                    ignored.printStackTrace();
-                }
+                //if (temp.length < 13) continue;
+                MovieBean bean = movieBeanSupplier.get();
+                buildMovieBean(temp, bean);
+                list.add(bean);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -98,7 +95,7 @@ public class MovieAnalyzer {
     }
 
     public Map<Integer, Integer> getMovieCountByYear() {
-        System.out.println(list.size());
+        //System.out.println(list.size());
         Stream<MovieBean> stream = streamSupplier.get();
         return stream.collect(Collectors.groupingBy(t -> t.releasedYear, Collectors.summingInt(x -> 1)));
     }
