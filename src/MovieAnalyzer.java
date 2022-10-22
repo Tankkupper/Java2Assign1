@@ -15,7 +15,7 @@ public class MovieAnalyzer {
         String certificate;
         int runtime; // "120 min"
         String[] genre; // type of movie
-        double rateInIMDB;
+        float rateInIMDB;
         String overview;
         int metaScore;
         String director;
@@ -30,7 +30,7 @@ public class MovieAnalyzer {
                     ", releasedYear=" + releasedYear +
                     ", certificate='" + certificate + '\'' +
                     ", runtime=" + runtime +
-                    ", genre='" + genre + '\'' +
+                    ", genre='" + Arrays.toString(genre) + '\'' +
                     ", rateInIMDB=" + rateInIMDB +
                     ", overview='" + overview + '\'' +
                     ", metaScore=" + metaScore +
@@ -45,17 +45,13 @@ public class MovieAnalyzer {
     List<MovieBean> list;
     Supplier<Stream<MovieBean>> streamSupplier;
 
-    public static void main(String[] args) {
-        MovieAnalyzer test = new MovieAnalyzer("resources/imdb_top_500.csv");
-    }
-
-    private static void buildMovieBean(String[] temp, MovieBean bean) {
+    private void buildMovieBean(String[] temp, MovieBean bean) {
         bean.seriesTitle = temp[1].charAt(0) == '\"' && temp[1].charAt(temp[1].length() - 1) == '\"' ? temp[1].substring(1, temp[1].length() - 1) : temp[1];
         bean.releasedYear = setYear(temp);
         bean.certificate = temp[3].replace("\"", "");
         bean.runtime = Integer.parseInt(temp[4].split(" ")[0]);
         bean.genre = temp[5].replace("\"", "").replace(" ", "").split(",");
-        bean.rateInIMDB = Double.parseDouble(temp[6]);
+        bean.rateInIMDB = Float.parseFloat(temp[6]);
         bean.overview = temp[7].charAt(0) == '\"' && temp[7].charAt(temp[7].length() - 1) == '\"' ? temp[7].substring(1, temp[7].length() - 1) : temp[7];
         bean.metaScore = setScore(temp);
         bean.director = temp[9].replace("\"", "");
@@ -126,17 +122,33 @@ public class MovieAnalyzer {
         return stream.collect(Collectors.groupingBy(t -> t.releasedYear, mapFactory, Collectors.summingInt(x -> 1)));
     }
 
+
     public Map<String, Integer> getMovieCountByGenre() {
         Stream<MovieBean> stream = streamSupplier.get();
         Map<String, Integer> noOrderedMap =
                 stream.map(bean -> Arrays.stream(bean.genre)).reduce(Stream::concat).get().collect(Collectors.groupingBy(a -> a, Collectors.summingInt(x -> 1)));
         return noOrderedMap.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .sorted((o1, o2) -> {
+                    int cmp = o2.getValue().compareTo(o1.getValue());
+                    return cmp != 0 ? cmp : o1.getKey().compareTo(o2.getKey());
+                })
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x, y) -> y, LinkedHashMap::new));
     }
 
     public Map<List<String>, Integer> getCoStarCount() {
-        return null;
+        List<List<String>> cpsList = new ArrayList<>();
+        for (MovieBean bean: list) {
+            for (int i = 0; i < 4; i++) {
+                for (int j = i+1; j < 4; j++) {
+                    List<String> cpList = new ArrayList<>();
+                    cpList.add(bean.stars[i]);
+                    cpList.add(bean.stars[j]);
+                    Collections.sort(cpList);
+                    cpsList.add(cpList);
+                }
+            }
+        }
+        return cpsList.stream().collect(Collectors.groupingBy(e -> e, Collectors.summingInt(x -> 1)));
     }
 
     public List<String> getTopMovies(int top_k, String by) {
@@ -159,20 +171,30 @@ public class MovieAnalyzer {
         List<String> list = stream.flatMap(x -> {
             Map<String, Double> map = new LinkedHashMap<>();
             for (String star : x.stars) {
-                map.put(star, by.equals("rating") ? x.rateInIMDB : x.gross);
+                map.put(star, by.equals("rating") ? (double)x.rateInIMDB : x.gross);
             }
             return map.entrySet().stream();
-        }).collect(
+        })      .filter(e -> e.getValue() >= 0)
+                .collect(
                 Collectors.groupingBy(Map.Entry::getKey, Collectors.averagingDouble(Map.Entry::getValue)))
                 .entrySet()
                 .stream()
-                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .sorted((o1, o2) -> {
+                    int cmp = o2.getValue().compareTo(o1.getValue());
+                    return cmp != 0 ? cmp : o1.getKey().compareTo(o2.getKey());
+                })
                 .limit(top_k)
                 .map(Map.Entry::getKey).collect(Collectors.toList());
         return list;
     }
 
     public List<String> searchMovies(String genre, float min_rating, int max_runtime) {
-        return null;
+        Stream<MovieBean> stream = streamSupplier.get();
+        return stream.filter(x-> x.runtime <= max_runtime)
+                .filter(x -> x.rateInIMDB >= min_rating)
+                .filter(x -> Arrays.asList(x.genre).contains(genre))
+                .map(x -> x.seriesTitle)
+                .sorted((String::compareTo))
+                .collect(Collectors.toList());
     }
 }
