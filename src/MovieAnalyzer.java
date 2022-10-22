@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class MovieAnalyzer {
-    static class MovieBean{
+    static class MovieBean {
         String seriesTitle;
         int releasedYear;
         String certificate;
@@ -41,6 +41,7 @@ public class MovieAnalyzer {
                     '}';
         }
     }
+
     List<MovieBean> list;
     Supplier<Stream<MovieBean>> streamSupplier;
 
@@ -49,13 +50,13 @@ public class MovieAnalyzer {
     }
 
     private static void buildMovieBean(String[] temp, MovieBean bean) {
-        bean.seriesTitle = temp[1].charAt(0) == '\"' && temp[1].charAt(temp[1].length()-1) == '\"' ? temp[1].substring(1, temp[1].length()-1) :  temp[1];
+        bean.seriesTitle = temp[1].charAt(0) == '\"' && temp[1].charAt(temp[1].length() - 1) == '\"' ? temp[1].substring(1, temp[1].length() - 1) : temp[1];
         bean.releasedYear = setYear(temp);
         bean.certificate = temp[3].replace("\"", "");
         bean.runtime = Integer.parseInt(temp[4].split(" ")[0]);
         bean.genre = temp[5].replace("\"", "").replace(" ", "").split(",");
         bean.rateInIMDB = Double.parseDouble(temp[6]);
-        bean.overview = temp[7].charAt(0) == '\"' && temp[7].charAt(temp[7].length()-1) == '\"' ? temp[7].substring(1, temp[7].length()-1) :  temp[7];
+        bean.overview = temp[7].charAt(0) == '\"' && temp[7].charAt(temp[7].length() - 1) == '\"' ? temp[7].substring(1, temp[7].length() - 1) : temp[7];
         bean.metaScore = setScore(temp);
         bean.director = temp[9].replace("\"", "");
         bean.stars = new String[4];
@@ -85,9 +86,9 @@ public class MovieAnalyzer {
 
     private static long setGross(String[] temp) {
         try {
-             return Long.parseLong(temp[15].replace("\"", "").replace(",", ""));
+            return Long.parseLong(temp[15].replace("\"", "").replace(",", ""));
         } catch (Exception e) {
-            return  -1;
+            return -1;
         }
     }
 
@@ -103,7 +104,7 @@ public class MovieAnalyzer {
                             (new FileReader
                                     (dataset, StandardCharsets.UTF_8));
             inLine = reader.readLine();
-            while((inLine = reader.readLine()) != null){
+            while ((inLine = reader.readLine()) != null) {
                 String[] temp = inLine.split(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
                 //if (temp.length < 13) continue;
                 MovieBean bean = movieBeanSupplier.get();
@@ -122,7 +123,7 @@ public class MovieAnalyzer {
     public Map<Integer, Integer> getMovieCountByYear() {
         Stream<MovieBean> stream = streamSupplier.get();
         Supplier<Map<Integer, Integer>> mapFactory = () -> new TreeMap<>((o1, o2) -> Integer.compare(o2, o1));
-        return stream.collect(Collectors.groupingBy(t -> t.releasedYear, mapFactory,Collectors.summingInt(x -> 1)));
+        return stream.collect(Collectors.groupingBy(t -> t.releasedYear, mapFactory, Collectors.summingInt(x -> 1)));
     }
 
     public Map<String, Integer> getMovieCountByGenre() {
@@ -141,16 +142,34 @@ public class MovieAnalyzer {
     public List<String> getTopMovies(int top_k, String by) {
         Stream<MovieBean> stream = streamSupplier.get();
         List<String> list = stream.sorted(by.equals("runtime") ?
-                (o1, o2) -> {if (o2.runtime == o1.runtime) return o1.seriesTitle.compareTo(o2.seriesTitle);
-                                else return o2.runtime - o1.runtime;} :
-                (o1, o2) -> {if (o2.overview.length() == o1.overview.length()) return o1.seriesTitle.compareTo(o2.seriesTitle);
-                                else return o2.overview.length() - o1.overview.length();} )
+                (o1, o2) -> {
+                    if (o2.runtime == o1.runtime) return o1.seriesTitle.compareTo(o2.seriesTitle);
+                    else return o2.runtime - o1.runtime;
+                } :
+                (o1, o2) -> {
+                    if (o2.overview.length() == o1.overview.length()) return o1.seriesTitle.compareTo(o2.seriesTitle);
+                    else return o2.overview.length() - o1.overview.length();
+                })
                 .limit(top_k).map(bean -> bean.seriesTitle).collect(Collectors.toList());
         return list;
     }
 
     public List<String> getTopStars(int top_k, String by) {
-        return null;
+        Stream<MovieBean> stream = streamSupplier.get();
+        List<String> list = stream.flatMap(x -> {
+            Map<String, Double> map = new LinkedHashMap<>();
+            for (String star : x.stars) {
+                map.put(star, by.equals("rating") ? x.rateInIMDB : x.gross);
+            }
+            return map.entrySet().stream();
+        }).collect(
+                Collectors.groupingBy(Map.Entry::getKey, Collectors.averagingDouble(Map.Entry::getValue)))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(top_k)
+                .map(Map.Entry::getKey).collect(Collectors.toList());
+        return list;
     }
 
     public List<String> searchMovies(String genre, float min_rating, int max_runtime) {
