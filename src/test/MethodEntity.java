@@ -5,7 +5,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-class MethodEntity {
+public class MethodEntity {
     private final int modifier;
     private final String name;
     private final Class<?> returnType;
